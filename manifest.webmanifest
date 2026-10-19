@@ -1,0 +1,14 @@
+{
+  "name": "TasteTown",
+  "short_name": "TasteTown",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F1F3F8",
+  "theme_color": "#F1F3F8",
+  "lang": "cs",
+  "icons": [
+    {"src": "assets/img/icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "assets/img/icon-512.png", "sizes": "512x512", "type": "image/png"}
+  ]
+}
