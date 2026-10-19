@@ -345,17 +345,24 @@ function sheetConditions() {
 function slotsFor(deal, v, date) {
   const code = DAYS[date.getDay()], out = [];
   deal.sl.forEach(sl => {
-    const days = (sl[1] || '').split(/,\s*/).map(x => DAY_AB[x.trim()]).filter(Boolean);
+    const txt = (sl[1] || '').trim();
+    const days = /denně|každý den/i.test(txt) || !txt ? DAYS : txt.split(/,\s*/).map(x => DAY_AB[x.trim()]).filter(Boolean);
     if (days.includes(code)) out.push({ time: sl[0].replace('–', ' - '), cap: parseInt((sl[2] || '').replace(/\D/g, '')) || 10 });
   });
-  if (!out.length && !deal.sl.length) { const t = todayHours(v, date); if (t) out.push({ time: `${t[1]} - ${t[2]}`, cap: 10 }); }
   return out;
 }
+// kontrolní háček pro QA: kolik dní v příštích 3 týdnech má deal termíny (bez pojistky)
+window.__ttSlotsDays = (v, di) => { let n = 0; for (let k = 0; k < 21; k++) { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + k); if (slotsFor(v.d[di], v, d).length) n++; } return n; };
 function sheetBooking(v, di) {
   const deal = v.d[di], days = [];
   for (let n = 0; days.length < 7 && n < 21; n++) {
     const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + n);
     const sl = slotsFor(deal, v, d); if (sl.length) days.push({ d, n, sl });
+  }
+  // pojistka pro demo: když deal nemá žádné časy, nabídni otevírací dobu podniku (nebo celý den)
+  if (!days.length) for (let n = 0; n < 7; n++) {
+    const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + n);
+    const t = todayHours(v, d); days.push({ d, n, sl: [{ time: t ? `${t[1]} - ${t[2]}` : '10:00 - 22:00', cap: 10 }] });
   }
   let pick = days.length ? { day: 0, slot: 0 } : null;
   const body = h('<div class="body"><div class="fsec" style="margin-top:0">Vyber den a čas</div></div>');
