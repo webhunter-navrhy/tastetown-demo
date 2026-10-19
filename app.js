@@ -353,17 +353,21 @@ function slotsFor(deal, v, date) {
 }
 // kontrolní háček pro QA: kolik dní v příštích 3 týdnech má deal termíny (bez pojistky)
 window.__ttSlotsDays = (v, di) => { let n = 0; for (let k = 0; k < 21; k++) { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + k); if (slotsFor(v.d[di], v, d).length) n++; } return n; };
+function bookingDays(v, di) {
+  // demo: vždy dnešek + 6 dní a vždy volno – i když podnik ten den termín nemá
+  const deal = v.d[di] || v.d[0], days = [];
+  const anyTime = (deal.sl[0] && deal.sl[0][0].replace('–', ' - ')) || null;
+  for (let n = 0; n < 7; n++) {
+    const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + n);
+    let sl = slotsFor(deal, v, d);
+    if (!sl.length) { const t = todayHours(v, d); sl = [{ time: anyTime || (t ? `${t[1]} - ${t[2]}` : '10:00 - 22:00'), cap: 10 }]; }
+    days.push({ d, n, sl: sl.map(x => ({ ...x, cap: Math.max(x.cap, 1) })) });
+  }
+  return days;
+}
+window.__ttBookingDays = (v, di) => { const ds = bookingDays(v, di); return ds.length === 7 && ds[0].n === 0 && ds.every(d => d.sl.length) ? ds.length : 0; };
 function sheetBooking(v, di) {
-  const deal = v.d[di], days = [];
-  for (let n = 0; days.length < 7 && n < 21; n++) {
-    const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + n);
-    const sl = slotsFor(deal, v, d); if (sl.length) days.push({ d, n, sl });
-  }
-  // pojistka pro demo: když deal nemá žádné časy, nabídni otevírací dobu podniku (nebo celý den)
-  if (!days.length) for (let n = 0; n < 7; n++) {
-    const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + n);
-    const t = todayHours(v, d); days.push({ d, n, sl: [{ time: t ? `${t[1]} - ${t[2]}` : '10:00 - 22:00', cap: 10 }] });
-  }
+  const days = bookingDays(v, di);
   let pick = days.length ? { day: 0, slot: 0 } : null;
   const body = h('<div class="body"><div class="fsec" style="margin-top:0">Vyber den a čas</div></div>');
   days.forEach((dd, k) => {
@@ -376,7 +380,6 @@ function sheetBooking(v, di) {
     });
     body.append(box);
   });
-  if (!days.length) body.append(h('<div class="menu-empty"><b>Žádné volné termíny</b>Tento DEAL teď nemá vypsané časy.</div>'));
   const foot = h('<div class="foot"><button class="cta lime" style="margin-top:0">Potvrdit</button></div>');
   const s = sheet([h('<div class="ttl">Rezervace dealu</div>'), body, foot]);
   $('.cta', foot).onclick = () => {
@@ -779,7 +782,16 @@ function goTab(t, sub) {
 }
 
 /* ================= START ================= */
+const BUILD = '20261019113649';
+async function checkUpdate() {
+  try {
+    const r = await fetch(`version.json?t=${Date.now()}`, { cache: 'no-store' }); const { b } = await r.json();
+    if (b && b !== BUILD && !BUILD.startsWith('__')) location.replace(`${location.pathname}?u=${b}`);
+  } catch (e) {}
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkUpdate(); });
 async function start() {
+  checkUpdate();
   const r = await fetch('data/praha.json?v=f6bc4974'); V = await r.json();
   V.forEach(v => byId[v.i] = v);
   seed();
